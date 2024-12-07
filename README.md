@@ -1,114 +1,42 @@
 # forge-provider-gcp
-// TODO(user): Add simple overview of use/purpose
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+**forge-provider-gcp** is an extension for [Forge](https://github.com/forge-build/forge), an open-source project designed to bring declarative APIs and powerful tooling to automate image builds on Kubernetes. This provider focuses on integrating Forge with **Google Cloud Platform (GCP)**, enabling seamless image creation in GCP environments.
 
-## Getting Started
+---
 
-### Prerequisites
-- go version v1.22.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+## About Forge
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+Forge is a cutting-edge initiative aimed at developing a prototype that provides:
+- **Declarative APIs**: Simplify image builds through intuitive and easy-to-use configurations.
+- **Powerful Automation**: Streamline the image-building process across different infrastructures.
+- **Cloud Integrations**: Connect with leading cloud platforms like AWS, GCP, Azure, and more.
+  
+At its core, Forge relies on **infrastructure providers** (e.g., AWS, GCP, Azure) and **provisioner providers** (e.g., Ansible) to build images efficiently. 
 
-```sh
-make docker-build docker-push IMG=<some-registry>/forge-provider-gcp:tag
-```
+Our vision is to make Forge a **Cloud Native Computing Foundation (CNCF)** project, enhancing its reach and adoption in the cloud-native ecosystem.
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+---
 
-**Install the CRDs into the cluster:**
+## About forge-provider-gcp
 
-```sh
-make install
-```
+This extension enables Forge to build images on **Google Cloud Platform (GCP)** with:
+- **Effortless Image Builds**: Leverage GCP's scalable and reliable infrastructure for creating machine images.
+- **Seamless Kubernetes Integration**: Operate directly within Kubernetes for a consistent and declarative experience.
+- **Declarative Configuration**: Define your image builds using Kubernetes resources.
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+---
 
-```sh
-make deploy IMG=<some-registry>/forge-provider-gcp:tag
-```
+## Contribution Guidelines
+Contributions are welcome! If you have ideas or bug reports, feel free to open an issue or submit a pull request.
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
-
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
-
-```sh
-kubectl apply -k config/samples/
-```
-
->**NOTE**: Ensure that the samples has default values to test it out.
-
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
-```
-
-**Delete the APIs(CRDs) from the cluster:**
-
-```sh
-make uninstall
-```
-
-**UnDeploy the controller from the cluster:**
-
-```sh
-make undeploy
-```
-
-## Project Distribution
-
-Following are the steps to build the installer and distribute this project to users.
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/forge-provider-gcp:tag
-```
-
-NOTE: The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without
-its dependencies.
-
-2. Using the installer
-
-Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/forge-provider-gcp/<tag or branch>/dist/install.yaml
-```
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+---
 
 ## License
+This project is licensed under the [Apache License 2.0](LICENSE).
 
-Copyright 2024.
+---
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+## Join Us on This Journey!
+Forge is more than a tool; it’s a step towards a unified cloud-native ecosystem for image builds. By leveraging providers like forge-provider-gcp, we aim to empower developers to focus on innovation while we handle the complexity of automation.
 
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
+Let’s build the future of image automation, together! 🚀
