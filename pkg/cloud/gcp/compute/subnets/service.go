@@ -21,10 +21,13 @@ import (
 
 	k8scloud "github.com/GoogleCloudPlatform/k8s-cloud-provider/pkg/cloud"
 	"github.com/GoogleCloudPlatform/k8s-cloud-provider/pkg/cloud/meta"
+	"github.com/go-logr/logr"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/forge-build/forge-provider-gcp/pkg/cloud"
 )
+
+const ServiceName = "subnets-reconciler"
 
 type subnetsInterface interface {
 	Get(ctx context.Context, key *meta.Key, options ...k8scloud.Option) (*compute.Subnetwork, error)
@@ -42,6 +45,7 @@ type Scope interface {
 type Service struct {
 	scope   Scope
 	subnets subnetsInterface
+	Log     logr.Logger
 }
 
 var _ cloud.Reconciler = &Service{}
@@ -56,5 +60,6 @@ func New(scope Scope) *Service {
 	return &Service{
 		scope:   scope,
 		subnets: cloudScope.Subnetworks(),
+		Log:     scope.Log(ServiceName),
 	}
 }

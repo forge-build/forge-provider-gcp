@@ -21,10 +21,13 @@ import (
 
 	k8scloud "github.com/GoogleCloudPlatform/k8s-cloud-provider/pkg/cloud"
 	"github.com/GoogleCloudPlatform/k8s-cloud-provider/pkg/cloud/meta"
+	"github.com/go-logr/logr"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/forge-build/forge-provider-gcp/pkg/cloud"
 )
+
+const ServiceName = "firewall-reconciler"
 
 type firewallsInterface interface {
 	Get(ctx context.Context, key *meta.Key, options ...k8scloud.Option) (*compute.Firewall, error)
@@ -43,6 +46,7 @@ type Scope interface {
 type Service struct {
 	scope     Scope
 	firewalls firewallsInterface
+	Log       logr.Logger
 }
 
 var _ cloud.Reconciler = &Service{}
@@ -52,5 +56,6 @@ func New(scope Scope) *Service {
 	return &Service{
 		scope:     scope,
 		firewalls: scope.Cloud().Firewalls(),
+		Log:       scope.Log(ServiceName),
 	}
 }

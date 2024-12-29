@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/forge-build/forge/pkg/ssh"
-	"go.uber.org/zap"
+	"github.com/go-logr/logr"
 
 	"github.com/forge-build/forge-provider-gcp/pkg/cloud/gcp/compute/images"
 	"github.com/forge-build/forge-provider-gcp/pkg/cloud/gcp/compute/instances"
@@ -36,14 +36,14 @@ import (
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	buildv1 "github.com/forge-build/forge/api/v1alpha1"
-	forgeutil "github.com/forge-build/forge/util"
-	"github.com/forge-build/forge/util/annotations"
-	"github.com/forge-build/forge/util/predicates"
+	buildv1 "github.com/forge-build/forge/pkg/api/v1alpha1"
+	"github.com/forge-build/forge/pkg/kubernetes"
+	forgeutil "github.com/forge-build/forge/pkg/util"
+	"github.com/forge-build/forge/pkg/util/predicates"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -54,10 +54,12 @@ import (
 
 const ControllerName = "gcpbuild-controller"
 
+var rawLog *logr.Logger
+
 // GCPBuildReconciler reconciles a GCPBuild object
 type GCPBuildReconciler struct {
 	client.Client
-	log      *zap.SugaredLogger
+	log      logr.Logger
 	recorder record.EventRecorder
 }
 
@@ -72,8 +74,7 @@ func (r *GCPBuildReconciler) recordEvent(gcpBuild *infrav1.GCPBuild, eventType, 
 // +kubebuilder:rbac:groups=forge.build,resources=builds,verbs=get;list;watch;patch
 
 func (r *GCPBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
-	r.log = r.log.With("GCPBuild", req.NamespacedName)
-	r.log.Info("Reconciling")
+	r.log = rawLog.WithValues("gcpbuild", req.Name, "namespace", req.Namespace).WithName(ControllerName)
 	gcpBuild := &infrav1.GCPBuild{}
 	err := r.Get(ctx, req.NamespacedName, gcpBuild)
 	if err != nil {
@@ -85,7 +86,6 @@ func (r *GCPBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		r.log.Error(err, "Unable to fetch GCPBuild resource")
 		return ctrl.Result{}, err
 	}
-
 	// Fetch the Build.
 	build, err := forgeutil.GetOwnerBuild(ctx, r.Client, gcpBuild.ObjectMeta)
 	if err != nil {
@@ -97,7 +97,7 @@ func (r *GCPBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		return ctrl.Result{}, nil
 	}
 
-	if annotations.IsPaused(build, gcpBuild) {
+	if kubernetes.IsPaused(build, gcpBuild) {
 		r.log.Info("GCPBuild of linked Build is marked as paused. Won't reconcile")
 		return ctrl.Result{}, nil
 	}
@@ -106,6 +106,7 @@ func (r *GCPBuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_
 		Client:   r.Client,
 		Build:    build,
 		GCPBuild: gcpBuild,
+		Log:      rawLog.WithValues("gcpbuild", req.Name, "namespace", req.Namespace),
 	})
 	if err != nil {
 		return ctrl.Result{}, errors.Errorf("failed to create scope: %+v", err)
@@ -151,6 +152,8 @@ func (r *GCPBuildReconciler) reconcileDelete(ctx context.Context, buildScope *sc
 	return nil
 }
 func (r *GCPBuildReconciler) reconcileNormal(ctx context.Context, buildScope *scope.BuildScope) (ctrl.Result, error) {
+	r.log.Info("Reconciling GCPBuild")
+
 	reconcilers := []cloud.Reconciler{
 		networks.New(buildScope),
 		firewalls.New(buildScope),
@@ -158,6 +161,13 @@ func (r *GCPBuildReconciler) reconcileNormal(ctx context.Context, buildScope *sc
 		instances.New(buildScope),
 		images.New(buildScope),
 	}
+
+	sshKey, err := r.GetSSHKey(ctx, buildScope)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "unable to get an ssh-key")
+	}
+
+	buildScope.SetSSHKey(sshKey)
 
 	if !buildScope.IsReady() {
 		for _, reconciler := range reconcilers {
@@ -167,21 +177,11 @@ func (r *GCPBuildReconciler) reconcileNormal(ctx context.Context, buildScope *sc
 				return ctrl.Result{}, err
 			}
 		}
+		controllerutil.AddFinalizer(buildScope.GCPBuild, infrav1.BuildFinalizer)
+		if err := buildScope.PatchObject(); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-
-	r.log.Info("Reconciling GCPBuild")
-
-	controllerutil.AddFinalizer(buildScope.GCPBuild, infrav1.BuildFinalizer)
-	if err := buildScope.PatchObject(); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// get ssh key
-	sshKey, err := r.GetSSHKey(ctx, buildScope)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "unable to get an ssh-key")
-	}
-	buildScope.SetSSHKey(sshKey)
 
 	if buildScope.IsReady() && !buildScope.IsCleanedUP() {
 		return ctrl.Result{}, r.reconcileDelete(ctx, buildScope)
@@ -212,29 +212,38 @@ func (r *GCPBuildReconciler) reconcileNormal(ctx context.Context, buildScope *sc
 }
 
 func (r *GCPBuildReconciler) GetSSHKey(ctx context.Context, buildScope *scope.BuildScope) (key scope.SSHKey, err error) {
-	if buildScope.GCPBuild.Spec.GenerateSSHKey {
-		sshKey, err := ssh.NewKeyPair()
-		if err != nil {
-			return key, errors.Wrap(err, "cannot generate ssh key")
-		}
-
-		return scopeSSHKey(buildScope.GCPBuild.Spec.Username, string(sshKey.PrivateKey), string(sshKey.PublicKey)), nil
-	}
-
 	if buildScope.GCPBuild.Spec.SSHCredentialsRef != nil {
 		secret, err := forgeutil.GetSecretFromSecretReference(ctx, r.Client, *buildScope.GCPBuild.Spec.SSHCredentialsRef)
 		if err != nil {
 			return scope.SSHKey{}, errors.Wrap(err, "unable to get ssh credentials secret")
 		}
 
-		_, _, privKey := ssh.GetCredentialsFromSecret(secret)
-
-		pubKey, err := ssh.GetPublicKeyFromPrivateKey(privKey)
-		if err != nil {
-			return scope.SSHKey{}, errors.Wrap(err, "unable to get public key")
-		}
+		_, _, privKey, pubKey := ssh.GetCredentialsFromSecret(secret)
 
 		return scopeSSHKey(buildScope.GCPBuild.Spec.Username, privKey, pubKey), nil
+	}
+
+	if buildScope.GCPBuild.Spec.GenerateSSHKey {
+		sshKey, err := ssh.NewKeyPair()
+		if err != nil {
+			return key, errors.Wrap(err, "cannot generate ssh key")
+		}
+
+		err = forgeutil.EnsureCredentialsSecret(ctx, r.Client, buildScope.Build, forgeutil.SSHCredentials{
+			Username:   buildScope.GCPBuild.Spec.Username,
+			PrivateKey: string(sshKey.PrivateKey),
+			PublicKey:  string(sshKey.PublicKey),
+		}, "aws")
+		if err != nil {
+			return scope.SSHKey{}, err
+		}
+		// Update the CredentialsRef in the AWSBuild spec
+		buildScope.GCPBuild.Spec.SSHCredentialsRef = &corev1.SecretReference{
+			Name:      fmt.Sprintf("%s-ssh-credentials", buildScope.Build.Name),
+			Namespace: buildScope.Build.Namespace,
+		}
+
+		return scopeSSHKey(buildScope.GCPBuild.Spec.Username, string(sshKey.PrivateKey), string(sshKey.PublicKey)), nil
 	}
 
 	return scope.SSHKey{}, errors.New("no ssh key provided, consider using spec.generateSSHKey or provide a private key")
@@ -251,11 +260,10 @@ func scopeSSHKey(username, privateKey, pubKey string) scope.SSHKey {
 }
 
 // Add creates a new GCPBuild controller and adds it to the Manager.
-func Add(ctx context.Context, mgr ctrl.Manager, numWorkers int, log *zap.SugaredLogger) error {
+func Add(ctx context.Context, mgr ctrl.Manager, numWorkers int, log *logr.Logger) error {
 	// Create the reconciler instance
 	reconciler := &GCPBuildReconciler{
 		Client:   mgr.GetClient(),
-		log:      log,
 		recorder: mgr.GetEventRecorderFor(ControllerName),
 	}
 
@@ -272,5 +280,6 @@ func Add(ctx context.Context, mgr ctrl.Manager, numWorkers int, log *zap.Sugared
 			builder.WithPredicates(predicates.BuildUnpaused(ctrl.LoggerFrom(ctx)))).
 		Build(reconciler)
 
+	rawLog = log
 	return err
 }

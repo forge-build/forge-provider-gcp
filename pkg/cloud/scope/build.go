@@ -22,14 +22,14 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/forge-build/forge/util"
+	"github.com/forge-build/forge/pkg/util"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/go-logr/logr"
 
-	buildv1 "github.com/forge-build/forge/api/v1alpha1"
+	buildv1 "github.com/forge-build/forge/pkg/api/v1alpha1"
 	"github.com/pkg/errors"
 	"google.golang.org/api/compute/v1"
 	"k8s.io/utils/ptr"
@@ -47,6 +47,7 @@ type BuildScopeParams struct {
 	Build       *buildv1.Build
 	GCPBuild    *infrav1.GCPBuild
 	BuildGetter cloud.BuildGetter
+	Log         logr.Logger
 }
 
 // NewBuildScope creates a new Scope from the supplied parameters.
@@ -78,6 +79,7 @@ func NewBuildScope(ctx context.Context, params BuildScopeParams) (*BuildScope, e
 		Build:       params.Build,
 		GCPBuild:    params.GCPBuild,
 		GCPServices: params.GCPServices,
+		Logger:      params.Log,
 		patchHelper: helper,
 	}, nil
 }
@@ -89,7 +91,7 @@ type BuildScope struct {
 
 	Build    *buildv1.Build
 	GCPBuild *infrav1.GCPBuild
-	//BuildGetter cloud.BuildGetter
+	Logger   logr.Logger
 	GCPServices
 
 	sshKEy SSHKey
@@ -106,6 +108,10 @@ type SSHKey struct {
 // Cloud returns initialized cloud.
 func (s *BuildScope) Cloud() cloud.Cloud {
 	return newCloud(s.Project(), s.GCPServices)
+}
+
+func (s *BuildScope) Log(serviceName string) logr.Logger {
+	return s.Logger.WithName(serviceName)
 }
 
 // NetworkCloud returns initialized cloud.

@@ -23,15 +23,13 @@ import (
 	"google.golang.org/api/compute/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api-provider-gcp/cloud/gcperrors"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	infrav1 "github.com/forge-build/forge-provider-gcp/pkg/api/v1alpha1"
 )
 
 // Reconcile reconcile machine instance.
 func (s *Service) Reconcile(ctx context.Context) error {
-	logger := log.FromContext(ctx)
-	logger.Info("Reconciling instance resources")
+	s.Log.Info("Reconciling instance resources")
 	instance, err := s.createOrGetInstance(ctx)
 	if err != nil {
 		return err
@@ -62,36 +60,34 @@ func (s *Service) Reconcile(ctx context.Context) error {
 
 // Delete delete machine instance.
 func (s *Service) Delete(ctx context.Context) error {
-	logger := log.FromContext(ctx)
-	logger.Info("Deleting instance resources")
-	instanceSpec := s.scope.InstanceSpec(logger)
+	s.Log.Info("Deleting instance resources")
+	instanceSpec := s.scope.InstanceSpec(s.Log)
 	instanceName := instanceSpec.Name
 	instanceKey := meta.ZonalKey(instanceName, s.scope.Zone())
-	logger.V(2).Info("Looking for instance before deleting", "name", instanceName, "zone", s.scope.Zone())
+	s.Log.V(1).Info("Looking for instance before deleting", "name", instanceName, "zone", s.scope.Zone())
 	_, err := s.instances.Get(ctx, instanceKey)
 	if err != nil {
 		if !gcperrors.IsNotFound(err) {
-			logger.Error(err, "Error looking for instance before deleting", "name", instanceName)
+			s.Log.Error(err, "Error looking for instance before deleting", "name", instanceName)
 			return err
 		}
 
 		return nil
 	}
 
-	logger.V(2).Info("Deleting instance", "name", instanceName, "zone", s.scope.Zone())
+	s.Log.V(1).Info("Deleting instance", "name", instanceName, "zone", s.scope.Zone())
 	return gcperrors.IgnoreNotFound(s.instances.Delete(ctx, instanceKey))
 }
 
 func (s *Service) createOrGetInstance(ctx context.Context) (*compute.Instance, error) {
-	logger := log.FromContext(ctx)
-	logger.V(2).Info("Getting bootstrap data for machine")
+	s.Log.V(1).Info("Getting bootstrap data for machine")
 	bootstrapData, err := s.scope.GetBootstrapData()
 	if err != nil {
-		logger.Error(err, "Error getting bootstrap data for machine")
+		s.Log.Error(err, "Error getting bootstrap data for machine")
 		return nil, errors.Wrap(err, "failed to retrieve bootstrap data")
 	}
 
-	instanceSpec := s.scope.InstanceSpec(logger)
+	instanceSpec := s.scope.InstanceSpec(s.Log)
 	instanceName := instanceSpec.Name
 	instanceKey := meta.ZonalKey(instanceName, s.scope.Zone())
 	if bootstrapData != "" {
@@ -101,17 +97,17 @@ func (s *Service) createOrGetInstance(ctx context.Context) (*compute.Instance, e
 		})
 	}
 
-	logger.V(2).Info("Looking for instance", "name", instanceName, "zone", s.scope.Zone())
+	s.Log.V(1).Info("Looking for instance", "name", instanceName, "zone", s.scope.Zone())
 	instance, err := s.instances.Get(ctx, instanceKey)
 	if err != nil {
 		if !gcperrors.IsNotFound(err) {
-			logger.Error(err, "Error looking for instance", "name", instanceName, "zone", s.scope.Zone())
+			s.Log.Error(err, "Error looking for instance", "name", instanceName, "zone", s.scope.Zone())
 			return nil, err
 		}
 
-		logger.V(2).Info("Creating an instance", "name", instanceName, "zone", s.scope.Zone())
+		s.Log.V(1).Info("Creating an instance", "name", instanceName, "zone", s.scope.Zone())
 		if err := s.instances.Insert(ctx, instanceKey, instanceSpec); err != nil {
-			logger.Error(err, "Error creating an instance", "name", instanceName, "zone", s.scope.Zone())
+			s.Log.Error(err, "Error creating an instance", "name", instanceName, "zone", s.scope.Zone())
 			return nil, err
 		}
 

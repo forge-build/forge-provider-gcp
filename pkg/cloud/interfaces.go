@@ -21,6 +21,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/k8s-cloud-provider/pkg/cloud"
 	infrav1 "github.com/forge-build/forge-provider-gcp/pkg/api/v1alpha1"
+	"github.com/go-logr/logr"
 )
 
 // Cloud alias for cloud.Cloud interface.
@@ -36,6 +37,7 @@ type Reconciler interface {
 type Client interface {
 	Cloud() Cloud
 	NetworkCloud() Cloud
+	Log(serviceName string) logr.Logger
 }
 
 // BuildGetter is an interface which can get build information.

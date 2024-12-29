@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	buildv1 "github.com/forge-build/forge/api/v1alpha1"
+	buildv1 "github.com/forge-build/forge/pkg/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"

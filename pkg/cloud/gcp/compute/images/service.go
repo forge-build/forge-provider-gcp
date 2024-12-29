@@ -23,8 +23,11 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-cloud-provider/pkg/cloud/filter"
 	"github.com/GoogleCloudPlatform/k8s-cloud-provider/pkg/cloud/meta"
 	"github.com/forge-build/forge-provider-gcp/pkg/cloud"
+	"github.com/go-logr/logr"
 	"google.golang.org/api/compute/v1"
 )
+
+const ServiceName = "image-reconciler"
 
 type instanceInterface interface {
 	Delete(project string, zone string, instance string) *compute.InstancesDeleteCall
@@ -59,6 +62,7 @@ type Service struct {
 	scope    Scope
 	instance instanceInterface
 	images   imageInterface
+	Log      logr.Logger
 }
 
 // New returns a new instance of Service for image creation.
@@ -67,6 +71,7 @@ func New(scope Scope) *Service {
 		scope:    scope,
 		instance: compute.NewInstancesService(scope.GetComputeService()),
 		images:   scope.Cloud().Images(),
+		Log:      scope.Log(ServiceName),
 	}
 }
 
