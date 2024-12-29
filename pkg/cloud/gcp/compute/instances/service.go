@@ -28,6 +28,8 @@ import (
 	"github.com/forge-build/forge-provider-gcp/pkg/cloud"
 )
 
+const ServiceName = "instance-reconciler"
+
 type instancesInterface interface {
 	Get(ctx context.Context, key *meta.Key, options ...k8scloud.Option) (*compute.Instance, error)
 	Insert(ctx context.Context, key *meta.Key, obj *compute.Instance, options ...k8scloud.Option) error
@@ -52,6 +54,7 @@ type Service struct {
 	scope          Scope
 	instances      instancesInterface
 	instancegroups instancegroupsInterface
+	Log            logr.Logger
 }
 
 var _ cloud.Reconciler = &Service{}
@@ -62,5 +65,6 @@ func New(scope Scope) *Service {
 		scope:          scope,
 		instances:      scope.Cloud().Instances(),
 		instancegroups: scope.Cloud().InstanceGroups(),
+		Log:            scope.Log(ServiceName),
 	}
 }

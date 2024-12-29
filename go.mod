@@ -1,6 +1,6 @@
 module github.com/forge-build/forge-provider-gcp
 
-go 1.22.2
+go 1.23.4
 
 replace github.com/forge-build/forge => ../forge
 
@@ -8,7 +8,6 @@ require (
 	github.com/GoogleCloudPlatform/k8s-cloud-provider v1.33.0
 	github.com/forge-build/forge v0.0.0-20220322163407-3b3b3b3b3b3b
 	github.com/go-logr/logr v1.4.2
-	github.com/go-logr/zapr v1.3.0
 	github.com/onsi/ginkgo/v2 v2.19.1
 	github.com/onsi/gomega v1.34.0
 	github.com/pkg/errors v0.9.1
@@ -38,6 +37,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.4 // indirect

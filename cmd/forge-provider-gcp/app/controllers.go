@@ -43,5 +43,5 @@ func createAllControllers(ctrlCtx *options.ControllerContext) error {
 }
 
 func createGCPBuildController(ctrlCtx *options.ControllerContext) error {
-	return gcpbuildcontroller.Add(ctrlCtx.Ctx, ctrlCtx.Mgr, 1, ctrlCtx.Log)
+	return gcpbuildcontroller.Add(ctrlCtx.Ctx, ctrlCtx.Mgr, 1, &ctrlCtx.Log)
 }
